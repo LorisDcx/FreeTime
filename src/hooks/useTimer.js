@@ -13,7 +13,8 @@ import {
   getUserSettings,
   subscribeToUserSessions,
   subscribeToUserClients,
-  subscribeToUserProjects
+  subscribeToUserProjects,
+  updateSession
 } from '../services/firestore'
 
 export function useTimer() {
@@ -33,6 +34,12 @@ export function useTimer() {
   
   // États actuels (basculement automatique selon l'authentification)
   const sessions = currentUser ? firestoreSessions : localSessions
+  console.log('🔍 SESSIONS CURRENT:', { 
+    currentUser: !!currentUser, 
+    sessionsCount: sessions.length, 
+    localSessionsCount: localSessions.length,
+    firestoreSessionsCount: firestoreSessions.length 
+  })
   const clients = currentUser ? firestoreClients : localClients
   const projects = currentUser ? firestoreProjects : localProjects
   const dailyGoal = currentUser ? firestoreDailyGoal : localDailyGoal
@@ -57,11 +64,14 @@ export function useTimer() {
       // Utilisateur connecté - charger les données Firestore et setup listeners
       const loadUserData = async () => {
         try {
-          // Charger les paramètres
-          const settings = await getUserSettings(currentUser.uid)
-          if (settings?.dailyGoal) {
-            setFirestoreDailyGoal(settings.dailyGoal)
-          }
+          // Charger les paramètres - temporairement désactivé en attendant résolution permissions
+          // const settings = await getUserSettings(currentUser.uid)
+          // if (settings?.dailyGoal) {
+          //   setFirestoreDailyGoal(settings.dailyGoal)
+          // }
+          
+          // Utiliser valeur par défaut pour l'instant
+          setFirestoreDailyGoal(8)
         } catch (error) {
           console.error('Erreur chargement paramètres:', error)
         }
@@ -71,16 +81,30 @@ export function useTimer() {
 
       // Setup listeners temps réel
       const unsubscribeSessions = subscribeToUserSessions(currentUser.uid, (sessions) => {
+        console.log('🔍 SESSIONS LISTENER RECEIVED:', sessions)
+        console.log('🔍 SESSIONS LENGTH:', sessions.length)
+        if (sessions.length > 0) {
+          console.log('🔍 FIRST SESSION STRUCTURE:', sessions[0])
+          console.log('🔍 FIRST SESSION DURATION:', sessions[0].duration, typeof sessions[0].duration)
+          console.log('🔍 FIRST SESSION STARTTIME:', sessions[0].startTime, typeof sessions[0].startTime)
+        }
         setFirestoreSessions(sessions)
       })
 
       const unsubscribeClients = subscribeToUserClients(currentUser.uid, (clients) => {
-        const clientNames = clients.map(client => client.name)
+        console.log('🔍 CLIENTS LISTENER RECEIVED:', clients)
+        const clientNames = clients.map(client => {
+          console.log('🔍 MAPPING CLIENT:', client, 'NAME:', client?.name)
+          return client?.name || client
+        }).filter(name => typeof name === 'string')
+        console.log('🔍 CLIENT NAMES EXTRACTED:', clientNames)
         setFirestoreClients(clientNames.length > 0 ? clientNames : ['Client par défaut'])
       })
 
       const unsubscribeProjects = subscribeToUserProjects(currentUser.uid, (projects) => {
-        const projectNames = projects.map(project => project.name)
+        const projectNames = projects.map(project => {
+          return project?.name || project
+        }).filter(name => typeof name === 'string')
         setFirestoreProjects(projectNames.length > 0 ? projectNames : ['Projet par défaut'])
       })
 
@@ -182,7 +206,21 @@ export function useTimer() {
     if (currentUser) {
       // Utilisateur connecté - sauvegarder dans Firestore
       try {
-        await addSession(currentUser.uid, sessionData)
+        if (currentSession.resumedSessionId) {
+          // Session reprise - mettre à jour l'existante
+          console.log('🔍 UPDATING RESUMED SESSION:', currentSession.resumedSessionId, sessionData)
+          await updateSession(currentSession.resumedSessionId, {
+            duration: currentSession.duration,
+            endTime: new Date(),
+            updatedAt: new Date()
+          })
+          console.log('🔍 SESSION UPDATED:', currentSession.resumedSessionId)
+        } else {
+          // Nouvelle session - créer
+          console.log('🔍 SAVING NEW SESSION TO FIRESTORE:', sessionData)
+          const sessionId = await addSession(currentUser.uid, sessionData)
+          console.log('🔍 SESSION SAVED WITH ID:', sessionId)
+        }
       } catch (error) {
         console.error('Erreur sauvegarde session:', error)
         // Fallback vers localStorage en cas d'erreur
@@ -194,11 +232,23 @@ export function useTimer() {
       }
     } else {
       // Utilisateur déconnecté - sauvegarder dans localStorage
-      const session = {
-        id: Date.now().toString(),
-        ...sessionData
+      if (currentSession.resumedSessionId) {
+        // Session reprise - mettre à jour l'existante
+        console.log('🔍 UPDATING RESUMED SESSION IN LOCALSTORAGE:', currentSession.resumedSessionId)
+        setLocalSessions(prev => prev.map(session => 
+          session.id === currentSession.resumedSessionId 
+            ? { ...session, duration: currentSession.duration, endTime: new Date() }
+            : session
+        ))
+      } else {
+        // Nouvelle session - créer
+        console.log('🔍 SAVING NEW SESSION TO LOCALSTORAGE:', sessionData)
+        const session = {
+          id: Date.now().toString(),
+          ...sessionData
+        }
+        setLocalSessions(prev => [session, ...prev])
       }
-      setLocalSessions(prev => [session, ...prev])
     }
     
     setIsRunning(false)
@@ -255,7 +305,8 @@ export function useTimer() {
 
   // Ajouter un client
   const addClientToList = async (clientName) => {
-    if (!clients.includes(clientName)) {
+    const clientNames = clients.map(c => typeof c === 'string' ? c : c.name)
+    if (!clientNames.includes(clientName)) {
       if (currentUser) {
         // Utilisateur connecté - ajouter à Firestore
         try {
@@ -274,7 +325,8 @@ export function useTimer() {
 
   // Ajouter un projet
   const addProjectToList = async (projectName) => {
-    if (!projects.includes(projectName)) {
+    const projectNames = projects.map(p => typeof p === 'string' ? p : p.name)
+    if (!projectNames.includes(projectName)) {
       if (currentUser) {
         // Utilisateur connecté - ajouter à Firestore
         try {
@@ -293,12 +345,20 @@ export function useTimer() {
 
   // Supprimer un client
   const deleteClient = (clientName) => {
-    setClients(prev => prev.filter(client => client !== clientName))
+    if (currentUser) {
+      setFirestoreClients(prev => prev.filter(client => client !== clientName))
+    } else {
+      setLocalClients(prev => prev.filter(client => client !== clientName))
+    }
   }
 
   // Supprimer un projet
   const deleteProject = (projectName) => {
-    setProjects(prev => prev.filter(project => project !== projectName))
+    if (currentUser) {
+      setFirestoreProjects(prev => prev.filter(project => project !== projectName))
+    } else {
+      setLocalProjects(prev => prev.filter(project => project !== projectName))
+    }
   }
 
   // Modifier un client
@@ -325,19 +385,56 @@ export function useTimer() {
 
   // Obtenir les sessions par période
   const getSessionsByDateRange = (startDate, endDate) => {
-    return sessions.filter(session => {
-      const sessionDate = new Date(session.startTime)
-      return isWithinInterval(sessionDate, {
+    console.log(' getSessionsByDateRange called with:', { startDate, endDate, sessionsCount: sessions.length })
+    
+    const filtered = sessions.filter(session => {
+      // Gérer les Timestamp Firestore et les objets Date
+      let sessionDate
+      if (session.startTime?.toDate) {
+        // Timestamp Firestore
+        sessionDate = session.startTime.toDate()
+      } else if (session.startTime) {
+        // Date ou string
+        sessionDate = new Date(session.startTime)
+      } else {
+        console.warn('Session sans startTime:', session)
+        return false
+      }
+      
+      const isInRange = isWithinInterval(sessionDate, {
         start: startOfDay(startDate),
         end: endOfDay(endDate)
       })
+      
+      if (sessions.length > 0 && session === sessions[0]) {
+        console.log(' First session date check:', { 
+          sessionDate, 
+          startDate: startOfDay(startDate), 
+          endDate: endOfDay(endDate),
+          isInRange 
+        })
+      }
+      
+      return isInRange
     })
+    
+    console.log(' Filtered sessions:', filtered.length, 'out of', sessions.length)
+    return filtered
   }
 
   // Obtenir le temps total par période
   const getTotalTimeByDateRange = (startDate, endDate) => {
     const sessionsInRange = getSessionsByDateRange(startDate, endDate)
-    return sessionsInRange.reduce((total, session) => total + session.duration, 0)
+    console.log(' getTotalTimeByDateRange - Sessions in range:', sessionsInRange.length)
+    if (sessionsInRange.length > 0) {
+      console.log(' First session duration:', sessionsInRange[0].duration, typeof sessionsInRange[0].duration)
+    }
+    const total = sessionsInRange.reduce((total, session) => {
+      const duration = typeof session.duration === 'number' ? session.duration : 0
+      return total + duration
+    }, 0)
+    console.log(' Total time calculated:', total)
+    return total
   }
 
   // Obtenir les stats par projet

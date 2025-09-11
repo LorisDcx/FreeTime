@@ -85,7 +85,20 @@ const TimerPage = ({
 
   const getTodaySessions = () => {
     const today = new Date().toDateString()
-    return sessions.filter(session => new Date(session.startTime).toDateString() === today)
+    return sessions.filter(session => {
+      // Gérer les Timestamp Firestore et les objets Date
+      let sessionDate
+      if (session.startTime?.toDate) {
+        // Timestamp Firestore
+        sessionDate = session.startTime.toDate()
+      } else if (session.startTime) {
+        // Date ou string
+        sessionDate = new Date(session.startTime)
+      } else {
+        return false
+      }
+      return sessionDate.toDateString() === today
+    })
   }
 
   const getTodayTotalTime = () => {
@@ -313,39 +326,42 @@ const TimerPage = ({
                           exit={{ opacity: 0, y: -10 }}
                           className="absolute top-full left-0 right-0 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-xl z-50 mt-1 max-h-24 overflow-y-auto"
                         >
-                          {clients.map((client, index) => (
+                          {clients.map((client, index) => {
+                            const clientName = typeof client === 'string' ? client : client.name
+                            return (
                             <button
                               key={index}
                               onClick={() => {
-                                setSelectedClient(client)
+                                setSelectedClient(clientName)
                                 setShowClientDropdown(false)
                               }}
                               className={`w-full text-left px-4 py-3 transition-colors border-b border-gray-100 dark:border-neutral-700 last:border-b-0 ${
-                                selectedClient === client ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'
+                                selectedClient === clientName ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'
                               }`}
                               style={{
-                                backgroundColor: selectedClient === client ? `${getTheme().primary}15` : 'transparent',
-                                color: selectedClient === client ? getTheme().primary : undefined
+                                backgroundColor: selectedClient === clientName ? `${getTheme().primary}15` : 'transparent',
+                                color: selectedClient === clientName ? getTheme().primary : undefined
                               }}
                               onMouseEnter={(e) => {
-                                if (selectedClient !== client) {
+                                if (selectedClient !== clientName) {
                                   e.target.style.backgroundColor = `${getTheme().primary}10`
                                 }
                               }}
                               onMouseLeave={(e) => {
-                                if (selectedClient !== client) {
+                                if (selectedClient !== clientName) {
                                   e.target.style.backgroundColor = 'transparent'
                                 }
                               }}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="truncate">{client}</span>
-                                {selectedClient === client && (
+                                <span className="truncate">{clientName}</span>
+                                {selectedClient === clientName && (
                                   <span className="ml-2" style={{ color: getTheme().primary }}>✓</span>
                                 )}
                               </div>
                             </button>
-                          ))}
+                            )
+                          })}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -369,39 +385,42 @@ const TimerPage = ({
                           exit={{ opacity: 0, y: -10 }}
                           className="absolute top-full left-0 right-0 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-xl z-50 mt-1 max-h-24 overflow-y-auto"
                         >
-                          {projects.map((project, index) => (
+                          {projects.map((project, index) => {
+                            const projectName = typeof project === 'string' ? project : project.name
+                            return (
                             <button
                               key={index}
                               onClick={() => {
-                                setSelectedProject(project)
+                                setSelectedProject(projectName)
                                 setShowProjectDropdown(false)
                               }}
                               className={`w-full text-left px-4 py-3 transition-colors border-b border-gray-100 dark:border-neutral-700 last:border-b-0 ${
-                                selectedProject === project ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'
+                                selectedProject === projectName ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'
                               }`}
                               style={{
-                                backgroundColor: selectedProject === project ? `${getTheme().primary}15` : 'transparent',
-                                color: selectedProject === project ? getTheme().primary : undefined
+                                backgroundColor: selectedProject === projectName ? `${getTheme().primary}15` : 'transparent',
+                                color: selectedProject === projectName ? getTheme().primary : undefined
                               }}
                               onMouseEnter={(e) => {
-                                if (selectedProject !== project) {
+                                if (selectedProject !== projectName) {
                                   e.target.style.backgroundColor = `${getTheme().primary}10`
                                 }
                               }}
                               onMouseLeave={(e) => {
-                                if (selectedProject !== project) {
+                                if (selectedProject !== projectName) {
                                   e.target.style.backgroundColor = 'transparent'
                                 }
                               }}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="truncate">{project}</span>
-                                {selectedProject === project && (
+                                <span className="truncate">{projectName}</span>
+                                {selectedProject === projectName && (
                                   <span className="ml-2" style={{ color: getTheme().primary }}>✓</span>
                                 )}
                               </div>
                             </button>
-                          ))}
+                            )
+                          })}
                         </motion.div>
                       )}
                     </AnimatePresence>

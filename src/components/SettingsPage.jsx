@@ -304,14 +304,16 @@ const SettingsPage = ({
                   Aucun client configuré
                 </p>
               ) : (
-                clients.map((client, index) => (
+                clients.map((client, index) => {
+                  const clientName = typeof client === 'string' ? client : client.name
+                  return (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="p-3 bg-gray-50 dark:bg-neutral-700 rounded-lg"
                   >
-                    {editingClient === client ? (
+                    {editingClient === clientName ? (
                       <div className="flex items-center space-x-2">
                         <input
                           type="text"
@@ -338,18 +340,18 @@ const SettingsPage = ({
                     ) : (
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {client}
+                          {clientName}
                         </span>
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => handleEditClient(client)}
+                            onClick={() => handleEditClient(clientName)}
                             className="p-1 hover:bg-gray-200 dark:hover:bg-neutral-600 rounded transition-colors"
                             title="Modifier"
                           >
                             <Edit3 className="w-4 h-4 text-gray-600 dark:text-neutral-400" />
                           </button>
                           <button
-                            onClick={() => handleDeleteClient(client)}
+                            onClick={() => handleDeleteClient(clientName)}
                             className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
                             title="Supprimer"
                           >
@@ -359,7 +361,8 @@ const SettingsPage = ({
                       </div>
                     )}
                   </motion.div>
-                ))
+                  )
+                })
               )}
             </div>
           </motion.div>
@@ -430,14 +433,16 @@ const SettingsPage = ({
                   Aucun projet configuré
                 </p>
               ) : (
-                projects.map((project, index) => (
+                projects.map((project, index) => {
+                  const projectName = typeof project === 'string' ? project : project.name
+                  return (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="p-3 bg-gray-50 dark:bg-neutral-700 rounded-lg"
                   >
-                    {editingProject === project ? (
+                    {editingProject === projectName ? (
                       <div className="flex items-center space-x-2">
                         <input
                           type="text"
@@ -464,18 +469,18 @@ const SettingsPage = ({
                     ) : (
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {project}
+                          {projectName}
                         </span>
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => handleEditProject(project)}
+                            onClick={() => handleEditProject(projectName)}
                             className="p-1 hover:bg-gray-200 dark:hover:bg-neutral-600 rounded transition-colors"
                             title="Modifier"
                           >
                             <Edit3 className="w-4 h-4 text-gray-600 dark:text-neutral-400" />
                           </button>
                           <button
-                            onClick={() => handleDeleteProject(project)}
+                            onClick={() => handleDeleteProject(projectName)}
                             className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
                             title="Supprimer"
                           >
@@ -485,7 +490,8 @@ const SettingsPage = ({
                       </div>
                     )}
                   </motion.div>
-                ))
+                  )
+                })
               )}
             </div>
           </motion.div>

@@ -91,7 +91,20 @@ const ReportsPage = ({
   const dailyData = useMemo(() => {
     const days = {}
     filteredSessions.forEach(session => {
-      const day = format(new Date(session.startTime), 'yyyy-MM-dd')
+      // Gérer les Timestamp Firestore et les objets Date
+      let sessionDate
+      if (session.startTime?.toDate) {
+        // Timestamp Firestore
+        sessionDate = session.startTime.toDate()
+      } else if (session.startTime) {
+        // Date ou string
+        sessionDate = new Date(session.startTime)
+      } else {
+        console.warn('Session sans startTime:', session)
+        return
+      }
+      
+      const day = format(sessionDate, 'yyyy-MM-dd')
       if (!days[day]) {
         days[day] = { date: day, duration: 0, sessions: 0 }
       }
@@ -533,13 +546,33 @@ const ReportsPage = ({
                   {filteredSessions.map((session, index) => (
                     <tr key={session.id} className="border-b border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition-colors">
                       <td className="py-2">
-                        {format(new Date(session.startTime), 'dd/MM/yyyy')}
+                        {(() => {
+                          let sessionDate
+                          if (session.startTime?.toDate) {
+                            sessionDate = session.startTime.toDate()
+                          } else if (session.startTime) {
+                            sessionDate = new Date(session.startTime)
+                          } else {
+                            return 'Date invalide'
+                          }
+                          return format(sessionDate, 'dd/MM/yyyy')
+                        })()}
                       </td>
                       <td className="py-2 font-medium">{session.task}</td>
                       <td className="py-2">{session.client}</td>
                       <td className="py-2">{session.project}</td>
                       <td className="py-2">
-                        {format(new Date(session.startTime), 'HH:mm')}
+                        {(() => {
+                          let sessionDate
+                          if (session.startTime?.toDate) {
+                            sessionDate = session.startTime.toDate()
+                          } else if (session.startTime) {
+                            sessionDate = new Date(session.startTime)
+                          } else {
+                            return 'Heure invalide'
+                          }
+                          return format(sessionDate, 'HH:mm')
+                        })()}
                       </td>
                       <td className="py-2 font-mono">
                         {formatTime ? formatTime(session.duration) : '0:00:00'}

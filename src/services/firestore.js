@@ -71,6 +71,8 @@ export const updateUserProfile = async (userId, updates) => {
 // ============ SESSIONS ============
 export const addSession = async (userId, sessionData) => {
   try {
+    console.log('🔍 ADDSESSION CALLED:', { userId, sessionData: { client: sessionData.client, project: sessionData.project, task: sessionData.task } })
+    
     const sessionsRef = collection(db, COLLECTIONS.sessions)
     const docRef = await addDoc(sessionsRef, {
       ...sessionData,
@@ -90,15 +92,18 @@ export const getUserSessions = async (userId) => {
     const sessionsRef = collection(db, COLLECTIONS.sessions)
     const q = query(
       sessionsRef, 
-      where('userId', '==', userId),
-      orderBy('startTime', 'desc')
+      where('userId', '==', userId)
+      // orderBy('startTime', 'desc') - Temporairement supprimé en attendant les index
     )
     const querySnap = await getDocs(q)
     
-    return querySnap.docs.map(doc => ({
+    const sessions = querySnap.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }))
+    
+    // Tri manuel par startTime desc
+    return sessions.sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
   } catch (error) {
     console.error('Erreur récupération sessions utilisateur:', error)
     throw error
@@ -131,8 +136,11 @@ export const deleteSession = async (sessionId) => {
 }
 
 // ============ CLIENTS ============
-export const addClient = async (userId, clientName) => {
+export const addClient = async (userId, clientData) => {
   try {
+    const clientName = typeof clientData === 'string' ? clientData : clientData.name
+    console.log('🔍 ADDCLIENT CALLED:', { userId, clientName, stack: new Error().stack })
+    
     const clientsRef = collection(db, COLLECTIONS.clients)
     const docRef = await addDoc(clientsRef, {
       name: clientName,
@@ -152,8 +160,8 @@ export const getUserClients = async (userId) => {
     const clientsRef = collection(db, COLLECTIONS.clients)
     const q = query(
       clientsRef, 
-      where('userId', '==', userId),
-      orderBy('name')
+      where('userId', '==', userId)
+      // orderBy('name') - Temporairement supprimé en attendant les index
     )
     const querySnap = await getDocs(q)
     
@@ -193,11 +201,11 @@ export const deleteClient = async (clientId) => {
 }
 
 // ============ PROJETS ============
-export const addProject = async (userId, projectName) => {
+export const addProject = async (userId, projectData) => {
   try {
     const projectsRef = collection(db, COLLECTIONS.projects)
     const docRef = await addDoc(projectsRef, {
-      name: projectName,
+      name: typeof projectData === 'string' ? projectData : projectData.name,
       userId,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -214,8 +222,8 @@ export const getUserProjects = async (userId) => {
     const projectsRef = collection(db, COLLECTIONS.projects)
     const q = query(
       projectsRef, 
-      where('userId', '==', userId),
-      orderBy('name')
+      where('userId', '==', userId)
+      // orderBy('name') - Temporairement supprimé en attendant les index
     )
     const querySnap = await getDocs(q)
     
@@ -257,26 +265,27 @@ export const deleteProject = async (projectId) => {
 // ============ PARAMÈTRES ============
 export const saveUserSettings = async (userId, settings) => {
   try {
-    const settingsRef = doc(db, COLLECTIONS.settings, userId)
-    await setDoc(settingsRef, {
-      ...settings,
-      userId,
-      updatedAt: new Date()
+    const userRef = doc(db, COLLECTIONS.users, userId)
+    await setDoc(userRef, {
+      settings: {
+        ...settings,
+        updatedAt: new Date()
+      }
     }, { merge: true })
     return true
   } catch (error) {
-    console.error('Erreur sauvegarde paramètres:', error)
+    console.error('Erreur sauvegarde paramètres utilisateur:', error)
     throw error
   }
 }
 
 export const getUserSettings = async (userId) => {
   try {
-    const settingsRef = doc(db, COLLECTIONS.settings, userId)
-    const settingsSnap = await getDoc(settingsRef)
+    const userRef = doc(db, COLLECTIONS.users, userId)
+    const userSnap = await getDoc(userRef)
     
-    if (settingsSnap.exists()) {
-      return settingsSnap.data()
+    if (userSnap.exists() && userSnap.data().settings) {
+      return userSnap.data().settings
     }
     return null
   } catch (error) {
@@ -287,45 +296,62 @@ export const getUserSettings = async (userId) => {
 
 // ============ LISTENERS TEMPS RÉEL ============
 export const subscribeToUserSessions = (userId, callback) => {
-  const sessionsRef = collection(db, COLLECTIONS.sessions)
-  const q = query(
-    sessionsRef, 
-    where('userId', '==', userId),
-    orderBy('startTime', 'desc')
-  )
-  
-  return onSnapshot(q, (querySnap) => {
-    const sessions = querySnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
-    callback(sessions)
-  })
+  try {
+    const sessionsRef = collection(db, COLLECTIONS.sessions)
+    const q = query(
+      sessionsRef, 
+      where('userId', '==', userId)
+      // orderBy('startTime', 'desc') - Temporairement supprimé en attendant les index
+    )
+    
+    return onSnapshot(q, (querySnap) => {
+      console.log('🔍 SESSIONS LISTENER - Query result:', querySnap.docs.length, 'documents')
+      const sessions = querySnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      // Tri manuel par startTime desc
+      sessions.sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
+      console.log('🔍 SESSIONS LISTENER - Processed sessions:', sessions.length)
+      callback(sessions)
+    }, (error) => {
+      console.error('🔥 SESSIONS LISTENER ERROR:', error)
+      callback([]) // Fallback avec array vide
+    })
+  } catch (error) {
+    console.error('🔥 SESSIONS LISTENER SETUP ERROR:', error)
+    return () => {} // Return empty unsubscribe function
+  }
 }
 
 export const subscribeToUserClients = (userId, callback) => {
-  const clientsRef = collection(db, COLLECTIONS.clients)
-  const q = query(
-    clientsRef, 
-    where('userId', '==', userId),
-    orderBy('name')
-  )
+  try {
+    const clientsRef = collection(db, COLLECTIONS.clients)
+    const q = query(
+      clientsRef, 
+      where('userId', '==', userId)
+      // orderBy('name') - Temporairement supprimé en attendant les index
+    )
   
-  return onSnapshot(q, (querySnap) => {
-    const clients = querySnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
-    callback(clients)
-  })
+    return onSnapshot(q, (querySnap) => {
+      const clients = querySnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      callback(clients)
+    })
+  } catch (error) {
+    console.error('Erreur abonnement clients utilisateur:', error)
+    return () => {} // Return empty unsubscribe function
+  }
 }
 
 export const subscribeToUserProjects = (userId, callback) => {
   const projectsRef = collection(db, COLLECTIONS.projects)
   const q = query(
     projectsRef, 
-    where('userId', '==', userId),
-    orderBy('name')
+    where('userId', '==', userId)
+    // orderBy('name') - Temporairement supprimé en attendant les index
   )
   
   return onSnapshot(q, (querySnap) => {
