@@ -14,6 +14,10 @@ Un outil de suivi du temps moderne et élégant pour freelances, consultants et 
 - **Mode sombre** - Basculement automatique
 - **Responsive** - Mobile-first avec navigation adaptée
 - **PWA Ready** - Installable comme application
+- **🔥 Authentification Firebase** - Inscription/Connexion sécurisée
+- **☁️ Synchronisation Cloud** - Données sauvegardées dans Firestore
+- **📱 Multi-appareils** - Accès à vos données depuis n'importe où
+- **🔄 Temps réel** - Synchronisation automatique entre appareils
 
 ### 🎨 Design Features
 - **Glassmorphism** - Effets de transparence et ombres douces
@@ -25,32 +29,66 @@ Un outil de suivi du temps moderne et élégant pour freelances, consultants et 
 ## 🛠️ Stack Technique
 
 - **Frontend**: React 18 + Vite
+- **Backend**: Firebase (Authentication + Firestore)
 - **Styling**: Tailwind CSS + CSS personnalisé
 - **Animations**: Framer Motion
 - **Charts**: Recharts
 - **Icônes**: Lucide React
 - **Exports**: jsPDF + html2canvas
 - **Dates**: date-fns
-- **Storage**: LocalStorage (MVP)
+- **Storage**: Firestore + LocalStorage (fallback)
+- **Déploiement**: Firebase Hosting + GitHub Actions
 
 ## 🚀 Installation & Démarrage
 
-1. **Installer les dépendances**
+### Configuration Firebase
+1. **Créer un projet Firebase**
+   - Rendez-vous sur [Firebase Console](https://console.firebase.google.com)
+   - Créez un nouveau projet
+   - Activez Authentication (Email/Password)
+   - Activez Firestore Database
+   - Activez Hosting
+
+2. **Configuration locale**
 ```bash
+# Cloner le repository
+git clone [repository-url]
+cd FreeTime
+
+# Installer les dépendances
 npm install
+
+# Copier le fichier d'environnement
+cp .env.example .env
 ```
 
-2. **Démarrer le serveur de développement**
+3. **Configurer les variables d'environnement**
+Modifiez le fichier `.env` avec vos clés Firebase :
+```bash
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abcdef
+```
+
+4. **Démarrer le serveur de développement**
 ```bash
 npm run dev
 ```
 
-3. **Accéder à l'application**
+5. **Accéder à l'application**
 ```
 http://localhost:3000
 ```
 
 ## 📱 Utilisation
+
+### Authentification
+1. **Créer un compte** - Inscription avec email/mot de passe
+2. **Se connecter** - Connexion sécurisée
+3. **Utilisation hors ligne** - Fonctionnement en localStorage sans compte
 
 ### Timer Principal
 1. Saisissez le nom de votre tâche
@@ -62,7 +100,7 @@ http://localhost:3000
 ### Navigation
 - **Timer** ⏱️ - Chronomètre principal
 - **Rapports** 📊 - Analytics et exports
-- **Paramètres** ⚙️ - Configuration et données
+- **Mon compte** 👤 - Profil utilisateur et connexion
 
 ### Exports
 - **CSV** - Compatible Excel/Sheets pour analyse
@@ -76,13 +114,26 @@ http://localhost:3000
 - Sessions détaillées avec filtres
 - Statistiques générales
 
+## 🔒 Sécurité & Données
+
+### Authentification Firebase
+- **Sécurisé** - Chiffrement de bout en bout
+- **Règles Firestore** - Accès restreint aux données utilisateur
+- **Validation** - Contrôles stricts côté serveur
+- **Backup automatique** - Données sauvegardées en temps réel
+
+### Utilisation hors ligne
+- **Mode déconnecté** - Fonctionne avec localStorage
+- **Synchronisation** - Upload automatique à la reconnexion
+- **Pas de perte de données** - Fallback intelligent
+
 ## 🎯 Fonctionnalités Premium (Roadmap)
 
 - 📧 Rapports automatiques par email
 - 🔗 Intégrations facturation (Stripe, QuickBooks)
 - 👥 Multi-utilisateurs (équipes)
 - 🔔 Notifications intelligentes
-- ☁️ Synchronisation cloud
+- 🏢 Organisations et espaces de travail
 - 📈 Analytics avancés
 
 ## 💰 Modèle de Monétisation
@@ -122,9 +173,27 @@ colors: {
 npm run build
 ```
 
-### Hébergement recommandé
-- **Frontend**: Vercel, Netlify
-- **Futur Backend**: Supabase, Firebase
+### Firebase Hosting
+```bash
+# Déploiement manuel
+firebase deploy
+
+# Déploiement automatique via GitHub Actions
+# Configuré automatiquement lors du push sur main
+```
+
+### Configuration CI/CD
+Le projet utilise GitHub Actions pour le déploiement automatique :
+- **Build automatique** sur chaque push
+- **Tests** avant déploiement  
+- **Déploiement Firebase** automatique
+- **URL de preview** pour les pull requests
+
+### Variables d'environnement
+Pour le déploiement, configurez ces secrets GitHub :
+```
+FIREBASE_SERVICE_ACCOUNT_KEY  # Clé de service Firebase
+```
 
 ## 📝 License
 
