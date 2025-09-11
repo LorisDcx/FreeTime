@@ -181,7 +181,7 @@ function App() {
           )}
 
           {/* Onglet Mon compte */}
-          <div className="mt-auto pt-6">
+          <div className="mt-auto pt-2">
             <button
               onClick={() => setCurrentPage('account')}
               className={`nav-item w-full ${currentPage === 'account' ? 'active' : ''}`}
@@ -192,12 +192,12 @@ function App() {
           </div>
 
           {/* Sélecteur de thème */}
-          <div className="mt-4 relative">
+          <div className="mt-96 pt-44 relative">
             <button
               onClick={() => setShowThemeSelector(!showThemeSelector)}
               className="w-full flex items-center space-x-2 p-2 text-gray-600 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
             >
-              <Palette className="w-5 h-5" />
+              <Palette className="w-8 h-5" />
               <span className="text-sm">Thèmes</span>
             </button>
 

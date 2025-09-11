@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { ChevronDown, Play, Square, Clock, Lightbulb, Plus } from 'lucide-react'
+import { ChevronDown, Play, Square, Clock, Lightbulb, Plus, User, LogIn } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from '../hooks/useTheme'
+import { useAuth } from '../hooks/useAuth'
+import AuthModal from './AuthModal'
 
 const TimerPage = ({ 
   isRunning, 
@@ -17,6 +19,7 @@ const TimerPage = ({
   formatTime
 }) => {
   const { getTheme, currentTheme } = useTheme()
+  const { currentUser } = useAuth()
   const [taskName, setTaskName] = useState('')
   const [selectedClient, setSelectedClient] = useState('Client par défaut')
   const [selectedProject, setSelectedProject] = useState('Projet par défaut')
@@ -26,6 +29,7 @@ const TimerPage = ({
   const [taskSuggestions, setTaskSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [resumeMenuSession, setResumeMenuSession] = useState(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
 
   useEffect(() => {
     if (taskName.length > 1) {
@@ -135,18 +139,46 @@ const TimerPage = ({
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center py-6 px-4 flex-shrink-0"
+        className="relative py-6 px-4 flex-shrink-0"
       >
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">
-          FreeTime Tracker
-        </h1>
-        <div className="flex items-center justify-center space-x-4 text-sm text-gray-600 dark:text-neutral-400">
-          <div className="flex items-center space-x-1">
-            <Clock className="w-4 h-4" />
-            <span>Aujourd'hui: {formatTime ? formatTime(getTodayTotalTime()) : '00:00:00'}</span>
+        {/* Bouton de connexion en haut à droite */}
+        <div className="absolute top-4 right-4 md:top-6 md:right-8">
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
+            style={{
+              backgroundColor: currentUser ? `${getTheme().primary}15` : `${getTheme().primary}10`,
+              color: currentUser ? getTheme().primary : getTheme().primaryDark,
+              border: `1px solid ${getTheme().primary}30`
+            }}
+          >
+            {currentUser ? (
+              <>
+                <User className="w-4 h-4" />
+                <span className="hidden sm:inline">{currentUser.email?.split('@')[0] || 'Mon compte'}</span>
+              </>
+            ) : (
+              <>
+                <LogIn className="w-4 h-4" />
+                <span>Se connecter</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Titre centré */}
+        <div className="text-center">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            FreeTime Tracker
+          </h1>
+          <div className="flex items-center justify-center space-x-4 text-sm text-gray-600 dark:text-neutral-400">
+            <div className="flex items-center space-x-1">
+              <Clock className="w-4 h-4" />
+              <span>Aujourd'hui: {formatTime ? formatTime(getTodayTotalTime()) : '00:00:00'}</span>
+            </div>
+            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+            <span>{getTodaySessions().length} sessions</span>
           </div>
-          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-          <span>{getTodaySessions().length} sessions</span>
         </div>
       </motion.div>
 
@@ -649,6 +681,9 @@ const TimerPage = ({
           )}
         </div>
       </div>
+      
+      {/* Modal d'authentification */}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   )
 }

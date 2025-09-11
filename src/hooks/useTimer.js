@@ -1,12 +1,41 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocalStorage } from './useLocalStorage'
+import { useAuth } from './useAuth'
 import { format, startOfDay, endOfDay, isWithinInterval } from 'date-fns'
+import { 
+  addSession, 
+  getUserSessions, 
+  addClient, 
+  getUserClients, 
+  addProject, 
+  getUserProjects,
+  saveUserSettings,
+  getUserSettings,
+  subscribeToUserSessions,
+  subscribeToUserClients,
+  subscribeToUserProjects
+} from '../services/firestore'
 
 export function useTimer() {
-  const [sessions, setSessions] = useLocalStorage('freetime_sessions', [])
-  const [clients, setClients] = useLocalStorage('freetime_clients', ['Client par défaut'])
-  const [projects, setProjects] = useLocalStorage('freetime_projects', ['Projet par défaut'])
-  const [dailyGoal, setDailyGoal] = useLocalStorage('freetime_daily_goal', 8) // 8 heures par défaut
+  const { currentUser } = useAuth()
+  
+  // États locaux (localStorage)
+  const [localSessions, setLocalSessions] = useLocalStorage('freetime_sessions', [])
+  const [localClients, setLocalClients] = useLocalStorage('freetime_clients', ['Client par défaut'])
+  const [localProjects, setLocalProjects] = useLocalStorage('freetime_projects', ['Projet par défaut'])
+  const [localDailyGoal, setLocalDailyGoal] = useLocalStorage('freetime_daily_goal', 8)
+  
+  // États Firestore
+  const [firestoreSessions, setFirestoreSessions] = useState([])
+  const [firestoreClients, setFirestoreClients] = useState(['Client par défaut'])
+  const [firestoreProjects, setFirestoreProjects] = useState(['Projet par défaut'])
+  const [firestoreDailyGoal, setFirestoreDailyGoal] = useState(8)
+  
+  // États actuels (basculement automatique selon l'authentification)
+  const sessions = currentUser ? firestoreSessions : localSessions
+  const clients = currentUser ? firestoreClients : localClients
+  const projects = currentUser ? firestoreProjects : localProjects
+  const dailyGoal = currentUser ? firestoreDailyGoal : localDailyGoal
   
   const [isRunning, setIsRunning] = useState(false)
   const [currentTime, setCurrentTime] = useState('00:00:00')
@@ -20,6 +49,60 @@ export function useTimer() {
 
   const intervalRef = useRef(null)
   const startTimeRef = useRef(null)
+  const unsubscribeRefs = useRef([])
+
+  // Effect pour gérer la connexion/déconnexion utilisateur et les listeners Firestore
+  useEffect(() => {
+    if (currentUser) {
+      // Utilisateur connecté - charger les données Firestore et setup listeners
+      const loadUserData = async () => {
+        try {
+          // Charger les paramètres
+          const settings = await getUserSettings(currentUser.uid)
+          if (settings?.dailyGoal) {
+            setFirestoreDailyGoal(settings.dailyGoal)
+          }
+        } catch (error) {
+          console.error('Erreur chargement paramètres:', error)
+        }
+      }
+
+      loadUserData()
+
+      // Setup listeners temps réel
+      const unsubscribeSessions = subscribeToUserSessions(currentUser.uid, (sessions) => {
+        setFirestoreSessions(sessions)
+      })
+
+      const unsubscribeClients = subscribeToUserClients(currentUser.uid, (clients) => {
+        const clientNames = clients.map(client => client.name)
+        setFirestoreClients(clientNames.length > 0 ? clientNames : ['Client par défaut'])
+      })
+
+      const unsubscribeProjects = subscribeToUserProjects(currentUser.uid, (projects) => {
+        const projectNames = projects.map(project => project.name)
+        setFirestoreProjects(projectNames.length > 0 ? projectNames : ['Projet par défaut'])
+      })
+
+      // Stocker les unsubscribe functions
+      unsubscribeRefs.current = [unsubscribeSessions, unsubscribeClients, unsubscribeProjects]
+    } else {
+      // Utilisateur déconnecté - nettoyer les listeners
+      unsubscribeRefs.current.forEach(unsubscribe => unsubscribe?.())
+      unsubscribeRefs.current = []
+      
+      // Reset des états Firestore
+      setFirestoreSessions([])
+      setFirestoreClients(['Client par défaut'])
+      setFirestoreProjects(['Projet par défaut'])
+      setFirestoreDailyGoal(8)
+    }
+
+    // Cleanup lors du démontage
+    return () => {
+      unsubscribeRefs.current.forEach(unsubscribe => unsubscribe?.())
+    }
+  }, [currentUser])
 
   // Formatage du temps
   const formatTime = (seconds) => {
@@ -80,36 +163,42 @@ export function useTimer() {
   }
 
   // Arrêter le timer
-  const stopTimer = () => {
+  const stopTimer = async () => {
     if (!isRunning) return
 
     clearInterval(intervalRef.current)
     intervalRef.current = null
 
-    if (currentSession.resumedSessionId) {
-      // Mettre à jour la session existante
-      setSessions(prev => prev.map(session => 
-        session.id === currentSession.resumedSessionId
-          ? {
-              ...session,
-              endTime: new Date(),
-              duration: currentSession.duration
-            }
-          : session
-      ))
+    const sessionData = {
+      task: currentSession.task,
+      client: currentSession.client,
+      project: currentSession.project,
+      startTime: startTimeRef.current,
+      endTime: new Date(),
+      duration: currentSession.duration,
+      date: format(startTimeRef.current, 'yyyy-MM-dd')
+    }
+
+    if (currentUser) {
+      // Utilisateur connecté - sauvegarder dans Firestore
+      try {
+        await addSession(currentUser.uid, sessionData)
+      } catch (error) {
+        console.error('Erreur sauvegarde session:', error)
+        // Fallback vers localStorage en cas d'erreur
+        const session = {
+          id: Date.now().toString(),
+          ...sessionData
+        }
+        setLocalSessions(prev => [session, ...prev])
+      }
     } else {
-      // Créer une nouvelle session
+      // Utilisateur déconnecté - sauvegarder dans localStorage
       const session = {
         id: Date.now().toString(),
-        task: currentSession.task,
-        client: currentSession.client,
-        project: currentSession.project,
-        startTime: startTimeRef.current,
-        endTime: new Date(),
-        duration: currentSession.duration,
-        date: format(startTimeRef.current, 'yyyy-MM-dd')
+        ...sessionData
       }
-      setSessions(prev => [session, ...prev])
+      setLocalSessions(prev => [session, ...prev])
     }
     
     setIsRunning(false)
@@ -124,31 +213,81 @@ export function useTimer() {
   }
 
   // Ajouter une session manuellement
-  const addSession = (sessionData) => {
+  const addManualSession = async (sessionData) => {
     const session = {
-      id: Date.now().toString(),
       ...sessionData,
       date: format(new Date(sessionData.startTime), 'yyyy-MM-dd')
     }
-    setSessions(prev => [session, ...prev])
+    
+    if (currentUser) {
+      // Utilisateur connecté - sauvegarder dans Firestore
+      try {
+        await addSession(currentUser.uid, session)
+      } catch (error) {
+        console.error('Erreur sauvegarde session manuelle:', error)
+        // Fallback vers localStorage
+        const localSession = { id: Date.now().toString(), ...session }
+        setLocalSessions(prev => [localSession, ...prev])
+      }
+    } else {
+      // Utilisateur déconnecté - sauvegarder dans localStorage
+      const localSession = { id: Date.now().toString(), ...session }
+      setLocalSessions(prev => [localSession, ...prev])
+    }
   }
 
   // Supprimer une session
-  const deleteSession = (sessionId) => {
-    setSessions(prev => prev.filter(session => session.id !== sessionId))
+  const deleteSession = async (sessionId) => {
+    if (currentUser) {
+      // Utilisateur connecté - supprimer de Firestore
+      try {
+        // Note: Il faudrait ajouter une fonction deleteSession dans firestore.js
+        // Pour l'instant, on filtre localement et on laisse les listeners se synchroniser
+        console.warn('Suppression Firestore non implémentée encore')
+      } catch (error) {
+        console.error('Erreur suppression session:', error)
+      }
+    } else {
+      // Utilisateur déconnecté - supprimer de localStorage
+      setLocalSessions(prev => prev.filter(session => session.id !== sessionId))
+    }
   }
 
   // Ajouter un client
-  const addClient = (clientName) => {
+  const addClientToList = async (clientName) => {
     if (!clients.includes(clientName)) {
-      setClients(prev => [...prev, clientName])
+      if (currentUser) {
+        // Utilisateur connecté - ajouter à Firestore
+        try {
+          await addClient(currentUser.uid, { name: clientName })
+        } catch (error) {
+          console.error('Erreur ajout client:', error)
+          // Fallback vers localStorage
+          setLocalClients(prev => [...prev, clientName])
+        }
+      } else {
+        // Utilisateur déconnecté - ajouter à localStorage
+        setLocalClients(prev => [...prev, clientName])
+      }
     }
   }
 
   // Ajouter un projet
-  const addProject = (projectName) => {
+  const addProjectToList = async (projectName) => {
     if (!projects.includes(projectName)) {
-      setProjects(prev => [...prev, projectName])
+      if (currentUser) {
+        // Utilisateur connecté - ajouter à Firestore
+        try {
+          await addProject(currentUser.uid, { name: projectName })
+        } catch (error) {
+          console.error('Erreur ajout projet:', error)
+          // Fallback vers localStorage
+          setLocalProjects(prev => [...prev, projectName])
+        }
+      } else {
+        // Utilisateur déconnecté - ajouter à localStorage
+        setLocalProjects(prev => [...prev, projectName])
+      }
     }
   }
 
@@ -224,8 +363,21 @@ export function useTimer() {
   }
 
   // Gérer l'objectif quotidien
-  const updateDailyGoal = (hours) => {
-    setDailyGoal(hours)
+  const updateDailyGoal = async (hours) => {
+    if (currentUser) {
+      // Utilisateur connecté - sauvegarder dans Firestore
+      try {
+        await saveUserSettings(currentUser.uid, { dailyGoal: hours })
+        setFirestoreDailyGoal(hours)
+      } catch (error) {
+        console.error('Erreur sauvegarde objectif quotidien:', error)
+        // Fallback vers localStorage
+        setLocalDailyGoal(hours)
+      }
+    } else {
+      // Utilisateur déconnecté - sauvegarder dans localStorage
+      setLocalDailyGoal(hours)
+    }
   }
 
   // Cleanup à la fermeture
@@ -251,10 +403,10 @@ export function useTimer() {
     startTimer,
     resumeTimer,
     stopTimer,
-    addSession,
+    addSession: addManualSession,
     deleteSession,
-    addClient,
-    addProject,
+    addClient: addClientToList,
+    addProject: addProjectToList,
     deleteClient,
     deleteProject,
     updateClient,

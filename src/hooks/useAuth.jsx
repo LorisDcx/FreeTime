@@ -7,6 +7,7 @@ import {
   updateProfile
 } from 'firebase/auth'
 import { auth } from '../config/firebase'
+import { createUserProfile, getUserProfile } from '../services/firestore'
 
 const AuthContext = createContext()
 
@@ -22,6 +23,22 @@ export function AuthProvider({ children }) {
   const signup = async (email, password, displayName) => {
     const { user } = await createUserWithEmailAndPassword(auth, email, password)
     await updateProfile(user, { displayName })
+    
+    // Créer le profil utilisateur dans Firestore
+    try {
+      await createUserProfile(user.uid, {
+        email: user.email,
+        displayName: displayName,
+        createdAt: new Date(),
+        settings: {
+          dailyGoal: 8,
+          theme: 'light'
+        }
+      })
+    } catch (error) {
+      console.error('Erreur création profil utilisateur:', error)
+    }
+    
     return user
   }
 
