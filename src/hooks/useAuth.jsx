@@ -53,8 +53,30 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user)
+      
+      // Si l'utilisateur existe mais pas de profil Firestore, le créer
+      if (user) {
+        try {
+          const profile = await getUserProfile(user.uid)
+          if (!profile) {
+            console.log('Création du profil manquant pour:', user.email)
+            await createUserProfile(user.uid, {
+              email: user.email,
+              displayName: user.displayName || 'Utilisateur',
+              createdAt: new Date(),
+              settings: {
+                dailyGoal: 8,
+                theme: 'light'
+              }
+            })
+          }
+        } catch (error) {
+          console.error('Erreur vérification profil:', error)
+        }
+      }
+      
       setLoading(false)
     })
 

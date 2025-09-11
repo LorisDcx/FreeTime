@@ -138,16 +138,16 @@ function App() {
                   <Icon className="w-5 h-5" />
                   <span>{item.name}</span>
                   {item.id === 'timer' && (
-                    <button
+                    <div
                       onClick={(e) => {
                         e.stopPropagation()
                         setShowAuthModal(true)
                       }}
-                      className="ml-auto p-1 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
+                      className="ml-auto p-1 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors cursor-pointer"
                       style={{ color: currentUser ? getTheme().primary : undefined }}
                     >
                       {currentUser ? <User className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
-                    </button>
+                    </div>
                   )}
                 </button>
               )
