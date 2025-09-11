@@ -1,13 +1,13 @@
-[debug] [2025-09-11T13:49:25.855Z] ----------------------------------------------------------------------
-[debug] [2025-09-11T13:49:25.857Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Loris\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js init
-[debug] [2025-09-11T13:49:25.857Z] CLI Version:   14.16.0
-[debug] [2025-09-11T13:49:25.857Z] Platform:      win32
-[debug] [2025-09-11T13:49:25.857Z] Node Version:  v22.12.0
-[debug] [2025-09-11T13:49:25.857Z] Time:          Thu Sep 11 2025 15:49:25 GMT+0200 (heure d’été d’Europe centrale)
-[debug] [2025-09-11T13:49:25.857Z] ----------------------------------------------------------------------
+[debug] [2025-09-11T13:58:58.175Z] ----------------------------------------------------------------------
+[debug] [2025-09-11T13:58:58.177Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Loris\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js init
+[debug] [2025-09-11T13:58:58.178Z] CLI Version:   14.16.0
+[debug] [2025-09-11T13:58:58.178Z] Platform:      win32
+[debug] [2025-09-11T13:58:58.178Z] Node Version:  v22.12.0
+[debug] [2025-09-11T13:58:58.178Z] Time:          Thu Sep 11 2025 15:58:58 GMT+0200 (heure d’été d’Europe centrale)
+[debug] [2025-09-11T13:58:58.178Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2025-09-11T13:49:25.861Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2025-09-11T13:49:25.862Z] > authorizing via signed-in user (lorisdcx.pro@gmail.com)
+[debug] [2025-09-11T13:58:58.317Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-09-11T13:58:58.317Z] > authorizing via signed-in user (lorisdcx.pro@gmail.com)
 [info] 
      ######## #### ########  ######## ########     ###     ######  ########
      ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
@@ -18,4 +18,8 @@
 You're about to initialize a Firebase project in this directory:
 
   C:\Users\Loris\Desktop\CODE\APPS\FreeTime
+
+Before we get started, keep in mind:
+
+  * You are initializing within an existing Firebase project directory
 
