@@ -353,11 +353,31 @@ export function useTimer() {
   }
 
   // Supprimer un projet
-  const deleteProject = (projectName) => {
+  const deleteProject = async (projectName) => {
     if (currentUser) {
-      setFirestoreProjects(prev => prev.filter(project => project !== projectName))
+      try {
+        // Trouver l'ID du projet à supprimer
+        const projectsRef = collection(db, 'projects');
+        const q = query(projectsRef, where('userId', '==', currentUser.uid), where('name', '==', projectName));
+        const querySnap = await getDocs(q);
+        
+        // Supprimer chaque document correspondant
+        const deletePromises = [];
+        querySnap.forEach((doc) => {
+          deletePromises.push(deleteDoc(doc.ref));
+        });
+        
+        await Promise.all(deletePromises);
+        
+        // Mettre à jour l'état local
+        setFirestoreProjects(prev => prev.filter(project => project !== projectName));
+      } catch (error) {
+        console.error('Erreur lors de la suppression du projet:', error);
+        throw error;
+      }
     } else {
-      setLocalProjects(prev => prev.filter(project => project !== projectName))
+      // Utilisateur déconnecté - supprimer de localStorage
+      setLocalProjects(prev => prev.filter(project => project !== projectName));
     }
   }
 
@@ -383,43 +403,59 @@ export function useTimer() {
     }
   }
 
+  // Fonction pour parser les dates de manière sécurisée
+  const safeDateParse = (dateValue) => {
+    if (!dateValue) return null;
+    
+    // Si c'est déjà une date
+    if (dateValue instanceof Date) return dateValue;
+    
+    // Si c'est un Timestamp Firestore
+    if (dateValue.toDate) return dateValue.toDate();
+    
+    // Si c'est une chaîne de caractères, la parser en tenant compte du format
+    if (typeof dateValue === 'string') {
+      // Essayer de parser la date au format ISO
+      const parsed = new Date(dateValue);
+      if (!isNaN(parsed.getTime())) return parsed;
+      
+      // Essayer de parser d'autres formats si nécessaire
+      // Par exemple pour les dates au format 'dd/MM/yyyy'
+      const parts = dateValue.split(/[-/]/);
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // Les mois sont 0-indexés
+        const year = parseInt(parts[2], 10);
+        const date = new Date(year, month, day);
+        if (!isNaN(date.getTime())) return date;
+      }
+    }
+    
+    console.warn('Impossible de parser la date:', dateValue);
+    return null;
+  };
+
   // Obtenir les sessions par période
   const getSessionsByDateRange = (startDate, endDate) => {
-    console.log(' getSessionsByDateRange called with:', { startDate, endDate, sessionsCount: sessions.length })
+    console.log('getSessionsByDateRange called with:', { startDate, endDate, sessionsCount: sessions.length });
     
     const filtered = sessions.filter(session => {
-      // Gérer les Timestamp Firestore et les objets Date
-      let sessionDate
-      if (session.startTime?.toDate) {
-        // Timestamp Firestore
-        sessionDate = session.startTime.toDate()
-      } else if (session.startTime) {
-        // Date ou string
-        sessionDate = new Date(session.startTime)
-      } else {
-        console.warn('Session sans startTime:', session)
-        return false
-      }
+      const sessionDate = safeDateParse(session.startTime);
+      if (!sessionDate) return false;
       
-      const isInRange = isWithinInterval(sessionDate, {
-        start: startOfDay(startDate),
-        end: endOfDay(endDate)
-      })
+      const start = safeDateParse(startDate);
+      const end = safeDateParse(endDate);
       
-      if (sessions.length > 0 && session === sessions[0]) {
-        console.log(' First session date check:', { 
-          sessionDate, 
-          startDate: startOfDay(startDate), 
-          endDate: endOfDay(endDate),
-          isInRange 
-        })
-      }
+      if (!start || !end) return false;
       
-      return isInRange
-    })
+      return isWithinInterval(sessionDate, { 
+        start: startOfDay(start), 
+        end: endOfDay(end) 
+      });
+    });
     
-    console.log(' Filtered sessions:', filtered.length, 'out of', sessions.length)
-    return filtered
+    console.log('Filtered sessions:', filtered.length, 'out of', sessions.length);
+    return filtered;
   }
 
   // Obtenir le temps total par période

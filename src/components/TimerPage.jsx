@@ -182,7 +182,7 @@ const TimerPage = ({
         {/* Titre centré */}
         <div className="text-center">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            FreeTime Tracker
+            TimeProof Tracker
           </h1>
           <div className="flex items-center justify-center space-x-4 text-sm text-gray-600 dark:text-neutral-400">
             <div className="flex items-center space-x-1">
@@ -199,14 +199,14 @@ const TimerPage = ({
       <div className="flex-1 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-8 px-4 md:px-8 pb-8 overflow-hidden">
 
         {/* COLONNE GAUCHE - Timer et formulaire */}
-        <div className="space-y-6">
+        <div className="space-y-7">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="card text-center relative overflow-hidden"
           >
             {/* Bouton timer principal */}
-            <div className="relative my-2 mb-16">
+            <div className="relative my-10 mb-12">
               <motion.button
                 onClick={handleStartStop}
                 disabled={!isRunning && !canStartTimer}
@@ -249,7 +249,7 @@ const TimerPage = ({
               initial={{ scale: 1 }}
               animate={{ scale: isRunning ? [1, 1.02, 1] : 1 }}
               transition={{ duration: 1, repeat: isRunning ? Infinity : 0 }}
-              className="mb-24"
+              className="mb-14"
             >
               <div className="text-4xl md:text-5xl font-mono font-bold text-gray-900 dark:text-white mb-2">
                 {currentTime}
@@ -266,7 +266,7 @@ const TimerPage = ({
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
+                className="space-y-10"
               >
                 {/* Saisie tâche */}
                 <div className="relative">
@@ -274,7 +274,7 @@ const TimerPage = ({
                     type="text"
                     value={taskName}
                     onChange={(e) => setTaskName(e.target.value)}
-                    placeholder="Que travaillez-vous aujourd'hui ?"
+                    placeholder="Que faites vous aujourd'hui ?"
                     className="input-field text-center text-lg"
                     onFocus={() => setShowSuggestions(taskSuggestions.length > 0)}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
@@ -307,9 +307,9 @@ const TimerPage = ({
                 </div>
 
                 {/* Sélection Client et Projet */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4" style={{ marginTop: '40px' }}>
                   {/* Client */}
-                  <div className="relative mb-12">
+                  <div className="relative">
                     <button
                       onClick={() => setShowClientDropdown(!showClientDropdown)}
                       className="input-field flex items-center justify-between text-left"
@@ -427,11 +427,14 @@ const TimerPage = ({
                   </div>
                 </div>
 
-                {!canStartTimer && (
-                  <p className="text-sm text-gray-500 dark:text-neutral-400 mt-4">
-                    Saisissez le nom de votre tâche pour commencer
-                  </p>
-                )}
+                {/* Espace réservé pour maintenir la hauteur constante */}
+                <div style={{ height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {!canStartTimer && (
+                    <p className="text-sm text-center text-gray-500 dark:text-neutral-400">
+                      Saisissez le nom de votre tâche pour commencer
+                    </p>
+                  )}
+                </div>
               </motion.div>
             )}
           </motion.div>
@@ -579,7 +582,27 @@ const TimerPage = ({
                     {/* Liste des sessions */}
                     <div className="space-y-2">
                       {group.sessions
-                        .sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
+                        .sort((a, b) => {
+                          // Gérer les Timestamp Firestore et les objets Date
+                          let dateA, dateB
+                          if (a.startTime?.toDate) {
+                            dateA = a.startTime.toDate()
+                          } else if (a.startTime) {
+                            dateA = new Date(a.startTime)
+                          } else {
+                            dateA = new Date(0)
+                          }
+                          
+                          if (b.startTime?.toDate) {
+                            dateB = b.startTime.toDate()
+                          } else if (b.startTime) {
+                            dateB = new Date(b.startTime)
+                          } else {
+                            dateB = new Date(0)
+                          }
+                          
+                          return dateB - dateA
+                        })
                         .map((session) => (
                         <motion.div
                           key={session.id}
@@ -593,10 +616,21 @@ const TimerPage = ({
                             </p>
                             <p className="text-xs text-gray-500 dark:text-neutral-400 flex items-center">
                               <Clock className="w-3 h-3 mr-1" />
-                              {new Date(session.startTime).toLocaleTimeString('fr-FR', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
+                              {(() => {
+                                // Gérer les Timestamp Firestore et les objets Date
+                                let sessionDate
+                                if (session.startTime?.toDate) {
+                                  sessionDate = session.startTime.toDate()
+                                } else if (session.startTime) {
+                                  sessionDate = new Date(session.startTime)
+                                } else {
+                                  return 'Heure inconnue'
+                                }
+                                return sessionDate.toLocaleTimeString('fr-FR', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })
+                              })()}
                             </p>
                           </div>
                           <div className="flex items-center space-x-2 ml-3">

@@ -4,7 +4,14 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   darkMode: 'class',
+  corePlugins: {
+    // Désactive la normalisation du style pour éviter les conflits avec les styles de base du navigateur
+    preflight: false,
+  },
   theme: {
     extend: {
       colors: {

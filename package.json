@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "lint:css": "stylelint \"**/*.css\" --ignore-path .gitignore",
+    "lint:fix": "npm run lint -- --fix && npm run lint:css -- --fix",
+    "preview": "vite preview",
+    "check": "npm run lint && npm run lint:css"
   },
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated",
@@ -24,6 +27,8 @@
     "tailwind-merge": "^2.2.0"
   },
   "devDependencies": {
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.18",
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
     "@vitejs/plugin-react": "^4.2.1",
@@ -33,6 +38,12 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "postcss": "^8.4.35",
+    "postcss-flexbugs-fixes": "^5.0.2",
+    "postcss-nesting": "^13.0.2",
+    "postcss-preset-env": "^10.4.0",
+    "stylelint": "^16.24.0",
+    "stylelint-config-standard": "^39.0.0",
+    "stylelint-config-tailwindcss": "^1.0.0",
     "tailwindcss": "^3.4.1",
     "vite": "^5.1.0"
   }

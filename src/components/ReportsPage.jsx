@@ -5,6 +5,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subW
 import { fr } from 'date-fns/locale'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { useTheme } from '../hooks/useTheme'
+import { useAuth } from '../hooks/useAuth'
 
 const ReportsPage = ({ 
   sessions, 
@@ -14,13 +15,18 @@ const ReportsPage = ({
   getProjectStats,
   deleteSession,
   timeFormat = 'duration', // 'duration' ou 'decimal' 
-  dailyGoal = 8 // Objectif quotidien en heures
+  dailyGoal = 8, // Objectif quotidien en heures
+  clients = [],
+  projects = []
 }) => {
   const { getTheme, currentTheme } = useTheme()
+  const { currentUser } = useAuth()
   const [selectedTimeFormat, setSelectedTimeFormat] = useState(timeFormat)
   const [selectedPeriod, setSelectedPeriod] = useState('week')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
+  const [selectedClient, setSelectedClient] = useState('tous')
+  const [selectedProject, setSelectedProject] = useState('tous')
 
   const periods = [
     { id: 'today', label: "Aujourd'hui", value: 'today' },
@@ -59,8 +65,18 @@ const ReportsPage = ({
   
   const filteredSessions = useMemo(() => {
     console.log('Recalculating filteredSessions with', sessions.length, 'sessions')
-    return getSessionsByDateRange ? getSessionsByDateRange(startDate, endDate) : []
-  }, [sessions, startDate, endDate, getSessionsByDateRange])
+    let sessionsByDateRange = getSessionsByDateRange ? getSessionsByDateRange(startDate, endDate) : []
+    
+    // Filtrer par client et projet
+    if (selectedClient !== 'tous') {
+      sessionsByDateRange = sessionsByDateRange.filter(session => session.client === selectedClient)
+    }
+    if (selectedProject !== 'tous') {
+      sessionsByDateRange = sessionsByDateRange.filter(session => session.project === selectedProject)
+    }
+    
+    return sessionsByDateRange
+  }, [sessions, startDate, endDate, getSessionsByDateRange, selectedClient, selectedProject])
   
   const totalTime = useMemo(() => {
     const result = getTotalTimeByDateRange ? getTotalTimeByDateRange(startDate, endDate) : 0
@@ -150,15 +166,32 @@ const ReportsPage = ({
 
   const exportToCSV = () => {
     const csvHeaders = ['Date', 'Tâche', 'Client', 'Projet', 'Début', 'Fin', 'Durée (h)']
-    const csvData = filteredSessions.map(session => [
-      format(new Date(session.startTime), 'dd/MM/yyyy'),
-      session.task,
-      session.client,
-      session.project,
-      format(new Date(session.startTime), 'HH:mm'),
-      format(new Date(session.endTime), 'HH:mm'),
-      (session.duration / 3600).toFixed(2)
-    ])
+    const csvData = filteredSessions.map(session => {
+      // Gérer les Timestamp Firestore et les objets Date
+      let sessionStartDate
+      if (session.startTime?.toDate) {
+        // Timestamp Firestore
+        sessionStartDate = session.startTime.toDate()
+      } else if (session.startTime) {
+        // Date ou string
+        sessionStartDate = new Date(session.startTime)
+      } else {
+        sessionStartDate = new Date()
+      }
+
+      // Calculer l'heure de fin basée sur la durée
+      const sessionEndDate = new Date(sessionStartDate.getTime() + (session.duration * 1000))
+
+      return [
+        format(sessionStartDate, 'dd/MM/yyyy'),
+        session.task,
+        session.client,
+        session.project,
+        format(sessionStartDate, 'HH:mm'),
+        format(sessionEndDate, 'HH:mm'),
+        (session.duration / 3600).toFixed(2)
+      ]
+    })
 
     const csvContent = [csvHeaders, ...csvData]
       .map(row => row.map(field => `"${field}"`).join(','))
@@ -175,37 +208,220 @@ const ReportsPage = ({
     const { jsPDF } = await import('jspdf')
     const doc = new jsPDF()
 
-    // Titre
+    // Forcer l'encodage UTF-8
+    doc.setDocumentProperties({
+      title: 'Rapport TimeProof',
+      subject: 'Rapport de temps de travail',
+      author: currentUser?.displayName || 'TimeProof User',
+      creator: 'TimeProof'
+    })
+
+    // Couleurs du thème
+    const primaryColor = [59, 130, 246] // Bleu
+    const accentColor = [16, 185, 129] // Vert/Turquoise
+    const lightGray = [248, 250, 252]
+    const darkGray = [71, 85, 105]
+
+    // === DÉGRADÉ SUBTIL PROFESSIONNEL ===
+    // Dégradé très discret : vert pâle vers blanc cassé
+    
+    // Zone 1 : Vert pâle professionnel (haut - 0 à 120px)
+    doc.setFillColor(187, 247, 208) // Vert très pâle et discret
+    doc.rect(0, 0, 210, 120, 'F')
+    
+    // Zone 2 : Vert très clair (milieu - 120 à 240px)  
+    doc.setFillColor(220, 252, 231) // Vert très clair
+    doc.rect(0, 120, 210, 120, 'F')
+    
+    // Zone 3 : Blanc cassé verdâtre (bas - 240 à 297px)
+    doc.setFillColor(248, 254, 249) // Blanc cassé avec soupçon de vert
+    doc.rect(0, 240, 210, 57, 'F')
+    
+    // Transitions ultra-lisses et imperceptibles
+    // Transition 1 : vert pâle vers vert très clair (60 étapes pour plus de fluidité)
+    for (let i = 0; i < 60; i++) {
+      const ratio = i / 60
+      const r = Math.round(187 + (220 - 187) * ratio)
+      const g = Math.round(247 + (252 - 247) * ratio)
+      const b = Math.round(208 + (231 - 208) * ratio)
+      doc.setFillColor(r, g, b)
+      doc.rect(0, 90 + i * 0.5, 210, 0.8, 'F') // Bandes plus fines et plus nombreuses
+    }
+    
+    // Transition 2 : vert très clair vers blanc cassé (60 étapes)
+    for (let i = 0; i < 60; i++) {
+      const ratio = i / 60
+      const r = Math.round(220 + (248 - 220) * ratio)
+      const g = Math.round(252 + (254 - 252) * ratio)
+      const b = Math.round(231 + (249 - 231) * ratio)
+      doc.setFillColor(r, g, b)
+      doc.rect(0, 210 + i * 0.5, 210, 0.8, 'F') // Bandes plus fines et plus nombreuses
+    }
+    
+    // Zone de contenu avec fond blanc opaque
+    doc.setFillColor(255, 255, 255) // Blanc 100% opaque (pas de transparence)
+    doc.roundedRect(15, 15, 180, 267, 12, 12, 'F')
+    
+
+    // === TITRE PRINCIPAL CENTRÉ ===
+    // Titre compact centré
+    doc.setTextColor(accentColor[0], accentColor[1], accentColor[2])
     doc.setFontSize(20)
-    doc.text('Rapport de Temps - FreeTime', 20, 20)
-    
-    // Période
-    doc.setFontSize(12)
-    doc.text(`Période: ${format(startDate, 'dd/MM/yyyy')} - ${format(endDate, 'dd/MM/yyyy')}`, 20, 35)
-    
-    // Résumé
-    doc.text(`Temps total: ${formatTime ? formatTime(totalTime) : '0:00:00'}`, 20, 45)
-    doc.text(`Nombre de sessions: ${filteredSessions.length}`, 20, 55)
-    
-    // Sessions détaillées
+    doc.setFont('helvetica', 'bold')
+    doc.text('Rapport hebdomadaire TimeProof', 105, 35, { align: 'center' })
+
+    // Informations utilisateur centrées
+    const userName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Utilisateur'
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2])
     doc.setFontSize(14)
-    doc.text('Sessions détaillées:', 20, 75)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Freelance: ${userName}`, 105, 50, { align: 'center' })
     
-    let yPosition = 90
+    // Saut de ligne puis période centrée
+    const startDateStr = format(startDate, 'dd/MM/yyyy')
+    const endDateStr = format(endDate, 'dd/MM/yyyy')
+    doc.text(`Semaine du ${startDateStr} au ${endDateStr}`, 105, 65, { align: 'center' })
+
+    // === STATISTIQUES EN LIGNE ===
+    const totalHours = Math.floor(totalTime / 3600)
+    const totalMinutes = Math.floor((totalTime % 3600) / 60)
+    const totalTimeFormatted = `${totalHours}h${totalMinutes.toString().padStart(2, '0')}`
+    
+    // Encadré statistiques
+    doc.setFillColor(lightGray[0], lightGray[1], lightGray[2])
+    doc.roundedRect(25, 75, 160, 25, 5, 5, 'F')
+    
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2])
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Sessions: ${filteredSessions.length}`, 35, 88)
+    
+    // Total mis en valeur
+    doc.setTextColor(accentColor[0], accentColor[1], accentColor[2])
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`TOTAL: ${totalTimeFormatted}`, 130, 88)
+
+    // === TABLEAU DES SESSIONS ===
+    let yPos = 115
+    
+    // Titre du tableau
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2])
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Detail des sessions:', 25, yPos)
+    
+    yPos += 15
+    
+    // En-tête du tableau simple
+    doc.setFillColor(lightGray[0], lightGray[1], lightGray[2])
+    doc.rect(25, yPos - 8, 160, 12, 'F')
+    
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2])
     doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Date', 30, yPos)
+    doc.text('Debut', 60, yPos)
+    doc.text('Fin', 85, yPos)
+    doc.text('Duree', 110, yPos)
+    doc.text('Tache', 140, yPos)
+
+    yPos += 15
+
+    // Lignes du tableau
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
     
-    filteredSessions.slice(0, 25).forEach(session => {
-      if (yPosition > 270) {
+    // Afficher toutes les sessions avec amélioration visuelle
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    
+    let rowCount = 0
+    const maxRowsPerPage = 12 // Limite réduite pour meilleure lisibilité
+    
+    // Filtrer les sessions vides ou de test
+    const validSessions = filteredSessions.filter(session => 
+      session.task && 
+      session.task.trim() !== '' && 
+      session.duration > 0
+    )
+    
+    validSessions.forEach(session => {
+      // Nouvelle page si nécessaire
+      if (rowCount >= maxRowsPerPage) {
         doc.addPage()
-        yPosition = 20
+        
+        // Reproduire l'en-tête sur nouvelle page
+        doc.setFillColor(lightGray[0], lightGray[1], lightGray[2])
+        doc.rect(25, 30 - 8, 160, 12, 'F')
+        
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2])
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'bold')
+        doc.text('Date', 30, 30)
+        doc.text('Debut', 60, 30)
+        doc.text('Fin', 85, 30)
+        doc.text('Duree', 110, 30)
+        doc.text('Tache', 140, 30)
+        
+        yPos = 45
+        rowCount = 0
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(9)
       }
       
-      const sessionText = `${format(new Date(session.startTime), 'dd/MM HH:mm')} - ${session.task} (${session.client} - ${session.project}) - ${formatTime ? formatTime(session.duration) : '0:00:00'}`
-      doc.text(sessionText, 20, yPosition)
-      yPosition += 10
+      // Gérer les dates
+      let sessionStartDate
+      if (session.startTime?.toDate) {
+        sessionStartDate = session.startTime.toDate()
+      } else if (session.startTime) {
+        sessionStartDate = new Date(session.startTime)
+      } else {
+        sessionStartDate = new Date()
+      }
+      
+      const sessionEndDate = new Date(sessionStartDate.getTime() + (session.duration * 1000))
+      const sessionHours = Math.floor(session.duration / 3600)
+      const sessionMinutes = Math.floor((session.duration % 3600) / 60)
+      
+      // Ligne alternée simple
+      if (rowCount % 2 === 0) {
+        doc.setFillColor(248, 250, 252)
+        doc.rect(25, yPos - 5, 160, 10, 'F')
+      }
+      
+      doc.setTextColor(darkGray[0], darkGray[1], darkGray[2])
+      
+      // Utiliser un format de date simple pour éviter l'encodage
+      doc.text(format(sessionStartDate, 'dd/MM'), 30, yPos)
+      doc.text(format(sessionStartDate, 'HH:mm'), 60, yPos)
+      doc.text(format(sessionEndDate, 'HH:mm'), 85, yPos)
+      doc.text(`${sessionHours}h${sessionMinutes.toString().padStart(2, '0')}`, 110, yPos)
+      
+      // Tâche (tronquée et nettoyée)
+      const cleanTask = session.task.replace(/[^\x00-\x7F]/g, '') // Supprimer caractères non-ASCII
+      const truncatedTask = cleanTask.length > 25 ? cleanTask.substring(0, 25) + '...' : cleanTask
+      doc.text(truncatedTask, 140, yPos)
+      
+      yPos += 12
+      rowCount++
     })
+
+    // === FOOTER CENTRÉ ===
+    const pageHeight = doc.internal.pageSize.height
     
-    doc.save(`freetime-rapport-${format(startDate, 'yyyy-MM-dd')}-${format(endDate, 'yyyy-MM-dd')}.pdf`)
+    // Footer sur une ligne centrée
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2])
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    
+    const generationDate = format(new Date(), 'dd/MM/yyyy HH:mm')
+    const footerText = `Rapport genere avec TimeProof - Merci pour votre confiance - Genere le: ${generationDate}`
+    doc.text(footerText, 105, pageHeight - 20, { align: 'center' })
+
+    // Nom de fichier sans caractères spéciaux
+    const filename = `timeproof-rapport-${format(startDate, 'yyyy-MM-dd')}-au-${format(endDate, 'yyyy-MM-dd')}.pdf`
+    doc.save(filename)
   }
 
   return (
@@ -327,6 +543,51 @@ const ReportsPage = ({
               </div>
             </div>
           )}
+          
+          {/* Filtres Client/Projet pour PDF */}
+          <div className="border-t border-gray-200 dark:border-neutral-700 pt-4 mt-4">
+            <h4 className="text-md font-medium text-gray-700 dark:text-neutral-300 mb-3">
+              Filtres pour l'export PDF
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1">
+                  Client
+                </label>
+                <select
+                  value={selectedClient}
+                  onChange={(e) => setSelectedClient(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="tous">Tous les clients</option>
+                  {clients.map((client, index) => {
+                    const clientName = typeof client === 'string' ? client : client.name
+                    return (
+                      <option key={index} value={clientName}>{clientName}</option>
+                    )
+                  })}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1">
+                  Projet
+                </label>
+                <select
+                  value={selectedProject}
+                  onChange={(e) => setSelectedProject(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="tous">Tous les projets</option>
+                  {projects.map((project, index) => {
+                    const projectName = typeof project === 'string' ? project : project.name
+                    return (
+                      <option key={index} value={projectName}>{projectName}</option>
+                    )
+                  })}
+                </select>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         {/* Statistiques générales */}

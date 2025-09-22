@@ -120,7 +120,7 @@ function App() {
                 />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">FreeTime</h1>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white">TimeProof</h1>
                 <p className="text-sm text-gray-500 dark:text-neutral-400">Time Tracker</p>
               </div>
             </div>
@@ -345,6 +345,8 @@ function App() {
             getSessionsByDateRange={getSessionsByDateRange}
             getTotalTimeByDateRange={getTotalTimeByDateRange}
             getProjectStats={getProjectStats}
+            clients={clients}
+            projects={projects}
             isDarkMode={isDarkMode}
             setIsDarkMode={setIsDarkMode}
           />
